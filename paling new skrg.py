@@ -10,8 +10,8 @@ import os
 from pygame.locals import *
 import threading
 
-BACKGROUND_WIDTH = 400
-BACKGROUND_HEIGHT = 640
+BACKGROUND_WIDTH = 800
+BACKGROUND_HEIGHT = 800
 FPS = 80
 
 
@@ -35,6 +35,10 @@ img_folder = os.path.join(game_folder, "Assets")
 car_folder = os.path.join(img_folder, "Car")
 life_folder = os.path.join(img_folder, "Lifebar")
 object_folder = os.path.join(img_folder, "Object")
+bahan_folder = os.path.join(game_folder, "Bahan")
+png_folder = os.path.join(bahan_folder, "PNG")
+tiles_folder = os.path.join(png_folder, "Tiles")
+grass_folder = os.path.join(tiles_folder, "Grass")
 
 def play_sound(sound_file):
     pygame.mixer.Channel(1).play(pygame.mixer.Sound(sound_file))
@@ -55,6 +59,7 @@ pygame.mixer.init()
 screen = pygame.display.set_mode((BACKGROUND_WIDTH, BACKGROUND_HEIGHT))
 pygame.display.set_caption('Car Racing')
 clock = pygame.time.Clock()
+player_speed = 4
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, car):
@@ -63,15 +68,15 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
-        self.speed = 4
+        self.speed = player_speed
         self.slippery = False
         self.slide_direction = 0  # Menyimpan arah pergerakan saat efek slippery aktif
         self.slide_counter = 0 
-        self.slide_duration = 60
+        self.slide_duration = 30
     def update(self):
         key = pygame.key.get_pressed()
         if not self.slippery :
-            if key[pygame.K_RIGHT] and self.rect.right < 357:
+            if key[pygame.K_RIGHT] and self.rect.right < 550:
                 self.rect.move_ip(self.speed, 0)
             if key[pygame.K_LEFT] and self.rect.left > 45:
                 self.rect.move_ip(-self.speed, 0)
@@ -92,8 +97,20 @@ class Player(pygame.sprite.Sprite):
         if self.slippery and not self.slide_direction == 0:
             self.speed = 2  # Mengurangi kecepatan saat efek slippery aktif
         else:
-            self.speed = 4
+            self.speed = player_speed
 
+class Pohon(pygame.sprite.Sprite):
+    def __init__(self, x, img):
+        super().__init__()
+        self.image = img
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = -50
+        self.hit = False
+
+    def update(self):
+        if self.rect.y > BACKGROUND_HEIGHT:
+            self.kill()
 
 class PanahJalan(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -148,10 +165,12 @@ class Bensin(pygame.sprite.Sprite):
         if self.rect.y > BACKGROUND_HEIGHT:
             self.kill()
 current_car = 0
+rumput = (pygame.image.load(os.path.join(grass_folder, "land_grass01.png")).convert_alpha())
+rumput_kanan = pygame.transform.scale(rumput, (144, BACKGROUND_HEIGHT))
+rumput_kiri = rumput_kanan
 tribune = pygame.transform.rotate(pygame.image.load(os.path.join(object_folder, "tribune.png")).convert_alpha(), 90)
 tribune_kiri = pygame.transform.scale(tribune, (144, BACKGROUND_HEIGHT))
-tribune_kanan = pygame.transform.scale(tribune, (144, BACKGROUND_HEIGHT))
-
+tribune_kanan = tribune_kiri
 def draw_main_menu():
        car_image = pygame.image.load(f"./Assets/Car/car_{current_car}.png").convert_alpha()
        car_rect = car_image.get_rect()
@@ -169,8 +188,16 @@ for i in range(8):
     car_list.append(img)
     car_list_img.append(f"car_{i}.png")
 
-oli_list = pygame.image.load(os.path.join(object_folder, "oil.png")).convert_alpha()
+def generate_pohon():
+    x_positions = [-20, 708]
+    for x in x_positions:
+        if random.random() < 0.5:
+            img = pygame.image.load(os.path.join(object_folder, "tree_small.png")).convert_alpha()
+            pohon = Pohon(x, img)
+            pohons.add(pohon)
 
+oli_list = pygame.image.load(os.path.join(object_folder, "oil.png")).convert_alpha()
+pohon_list = pygame.image.load(os.path.join(object_folder, "tree_small.png")).convert_alpha()
 bensin_img = pygame.image.load(os.path.join(object_folder, "last.png")).convert_alpha()
 
 all_sprites = pygame.sprite.Group()
@@ -178,10 +205,12 @@ panahGrup = pygame.sprite.Group()
 cars = pygame.sprite.Group()
 oils = pygame.sprite.Group()
 bensins = pygame.sprite.Group()
+pohons = pygame.sprite.Group()
 
 objOli = Oli(random.randrange(82, 302), oli_list)
 oils.add(objOli)
   
+generate_pohon()
 
 mobil = Car(random.randrange(82, 302), random.choice(car_list))
 cars.add(mobil)
@@ -195,7 +224,8 @@ urutan_mobil = ["Honda Jazz", "Rubicon", "Civic", "Taxi", "Camri", "SLK100", "Su
 
 # Health Bar
 health = 100
-
+#speed increment
+speed_increment = 1
 # Score
 score = 0
 score_font = pygame.font.SysFont(None, 30)
@@ -217,7 +247,6 @@ pygame.mixer.music.play(-1)
 while run:
     clock.tick(FPS)
     for event in pygame.event.get():
-        
         if event.type == pygame.QUIT:
             run = False
         if event.type == KEYUP:
@@ -227,9 +256,12 @@ while run:
                 cars.empty()
                 oils.empty()
                 bensins.empty()
-              
-                objOli = Oli(random.randrange(82, 302), random.choice(oli_list))
+                pohons.empty()
+
+                objOli = Oli(random.randrange(82, 302), oli_list)
                 oils.add(objOli)
+                
+                generate_pohon()
 
                 mobil = Car(random.randrange(82, 302), random.choice(car_list))
                 cars.add(mobil)
@@ -269,6 +301,8 @@ while run:
     if scene.get(current_scene) == "PLAY": 
         for panah in panahGrup:
             panah.rect.y += 2
+        for pohon in pohons:
+            pohon.rect.y += 2
         for car in cars:
             car.rect.y += 3
         for oli in oils:
@@ -278,6 +312,8 @@ while run:
         while len(panahGrup) < 3:
             panah_new = PanahJalan(BACKGROUND_WIDTH // 2 - 50, -50)
             panahGrup.add(panah_new)
+        while len(pohons) < 1:
+            generate_pohon()
         while len(cars) < 1:
             mobil_new = Car(random.randrange(82, 302), random.choice(car_list))
             cars.add(mobil_new)
@@ -293,7 +329,7 @@ while run:
             for m in kena_mobil:
                 if not m.hit:
                     m.hit = True
-                    health -= 15
+                    health = 0
                     if health <= 0:
                         current_scene = 2
             play_sound_threaded("sound/Duar.mp3")
@@ -323,15 +359,20 @@ while run:
         cars.update()
         oils.update()
         bensins.update()
+        pohons.update()
 
         # Increase score
-        score += 0.001
-        score = round(score,3)
-
+        score += 0.1
+        score = round(score,2)
+        if score == 100 or score == 200 or score == 300 or score == 400:
+            player_speed += speed_increment
     screen.fill(BG)
 
-    screen.blit(tribune_kiri, (-105, 0))
-    screen.blit(tribune_kanan, (BACKGROUND_WIDTH - 40, 0))
+    screen.blit(tribune_kiri, (-40, 0))
+    screen.blit(tribune_kanan, (BACKGROUND_WIDTH - 120, 0))
+    screen.blit(rumput_kiri, (-90, 0))
+    screen.blit(rumput_kanan, (BACKGROUND_WIDTH - 60, 0))
+
 
     if scene.get(current_scene) == "MAIN MENU":
        draw_main_menu()
@@ -340,6 +381,7 @@ while run:
         oils.draw(screen)
         cars.draw(screen)
         bensins.draw(screen)
+        pohons.draw(screen)
         all_sprites.draw(screen)
 
         # Draw Health Bar
