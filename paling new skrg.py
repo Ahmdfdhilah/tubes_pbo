@@ -77,6 +77,8 @@ class Player(GameObject):
         self.__slide_direction = 0
         self.__slide_counter = 0 
         self.__slide_duration = 30
+    def set_slippery(self, slippery):
+        self.__slippery = slippery
     def update(self):
         key = pygame.key.get_pressed()
         if not self.__slippery :
@@ -92,7 +94,7 @@ class Player(GameObject):
              # Logika pergerakan player saat efek slippery aktif
             self.__slide_counter += 1
             if self.__slide_counter >= 1 and self.__slide_counter <= self.__slide_duration:
-                if self.slide_counter % 10 == 0:
+                if self.__slide_counter % 10 == 0:
                     # Setiap 10 frame, ubah arah pergerakan secara acak
                     self.__slide_direction = random.choice([-1, 1])
                 self.rect.move_ip(self.__speed * self.__slide_direction, 0)
@@ -101,7 +103,7 @@ class Player(GameObject):
                 self.__slide_counter = 0
                 self.__slide_direction = 0
                 self.__slippery = False
-            if self.slippery and not self.slide_direction == 0:
+            if self.__slippery and not self.__slide_direction == 0:
                 self.__speed = 2  # Mengurangi kecepatan saat efek slippery aktif
             else:
                 self.__speed = player_speed
@@ -358,7 +360,7 @@ while run:
                     health -= 5
                     if health <= 0:
                         current_scene = 2
-            player.slippery = True
+            player.set_slippery(True)
             play_sound_threaded("sound/ngepot.mp3")
 
         kena_bensin = pygame.sprite.spritecollide(player, bensins, True)
